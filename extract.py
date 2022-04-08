@@ -2,12 +2,12 @@ from db_creation import get_database, get_session, declarative_base
 import requests
 from datetime import datetime
 import datetime
-from local_settings import spotify
+from local_settings import spotify, user_spotify
 
 DATABASE_LOCATION = get_database()
 SESSION = get_session()
 BASE = declarative_base()
-USER_ID = 'Arturo Martínez Pacheco'
+USER_ID = user_spotify
 TOKEN = spotify
 
 if __name__ == "__main__":
