@@ -1,4 +1,4 @@
-from db_creation import get_database, get_session, declarative_base
+from db_creation import get_database
 import requests
 from datetime import datetime
 import datetime
@@ -6,11 +6,11 @@ import json
 import pandas as pd
 from local_settings import spotify, user_spotify
 
-DATABASE_LOCATION = get_database()
-SESSION = get_session()
-BASE = declarative_base()
+DATABASE = get_database()
 USER_ID = user_spotify
 TOKEN = spotify
+
+
 
 def check_if_valid_data(df: pd.DataFrame) -> bool:
     # check if df is empty
@@ -28,17 +28,17 @@ def check_if_valid_data(df: pd.DataFrame) -> bool:
     if df.isnull().values.any():
         raise Exception ("Null values found")
     
-    # check that all the timestamps are from at least yesterday
-    yesterday = datetime.datetime.now() - datetime.timedelta(days=1)
-    yesterday = yesterday.replace(hour=0, minute=0, second=0, microsecond=0)
+    # check that all the timestamps are from at least the last week
+    last_week = datetime.datetime.now() - datetime.timedelta(days=7)
+    last_week = last_week.replace(hour=0, minute=0, second=0, microsecond=0)
 
     timestamps = df["timestamp"].tolist()
     print(timestamps)
     for timestamp in timestamps:
-        if datetime.datetime.strptime(timestamp, '%Y-%m-%d') < yesterday:
+        if datetime.datetime.strptime(timestamp, '%Y-%m-%d') < last_week:
             print(datetime.datetime.strptime(timestamp, '%Y-%m-%d'), "-----DATETIME")
-            print(yesterday, "------YESTERDAY")
-            raise Exception("At least one of the returned songs was played before yesterday")
+            print(last_week, "------last week")
+            raise Exception("At least one of the returned songs was played before last week")
             
 
     return True
@@ -49,23 +49,12 @@ if __name__ == "__main__":
         'Authorization': f"Bearer {TOKEN}"
     }
 
-    # today = datetime.datetime.now()
-    # yesterday = today - datetime.timedelta(days=1)
-    # print(yesterday, "--------YESTERDAY FROM MAIN")
-    # custom_unix_timestamp = int(datetime.datetime.timestamp(yesterday)) * 1000
-    # print(custom_unix_timestamp)
-
     today = datetime.datetime.now()
-    yesterday = today - datetime.timedelta(days=1)
-    yesterday_unix_timestamp = int(yesterday.timestamp()) * 1000
-    print(yesterday_unix_timestamp, "---------UNIXTIMESTAMP")
+    last_week = today - datetime.timedelta(days=7)
+    last_week_unix_timestamp = int(last_week.timestamp()) * 1000
+    print(last_week_unix_timestamp, "---------UNIXTIMESTAMP")
 
-    # example taken from the web
-    # presentDate = datetime.datetime.now()
-    # unix_timestamp = datetime.datetime.timestamp(presentDate)*1000
-    # print(unix_timestamp)
-
-    r = requests.get(f'https://api.spotify.com/v1/me/player/recently-played?limit=10&after={yesterday_unix_timestamp}', headers=headers)
+    r = requests.get(f'https://api.spotify.com/v1/me/player/recently-played?limit=10&after={last_week_unix_timestamp}', headers=headers)
     data = r.json()
     # print(data)
     # with open('spotify_json', 'w') as f:
@@ -99,3 +88,26 @@ if __name__ == "__main__":
 
     if check_if_valid_data(song_df):
         print('Data valid, proceed to Load stage')
+
+
+    # load songs to db
+    sql_query = """
+    CREATE TABLE IF NOT EXISTS my_played_tracks(
+        song_name VARCHAR(200),
+        artist_name VARCHAR(200),
+        played_at VARCHAR(200),
+        timestamp VARCHAR(200),
+        CONSTRAINT primary_key_constraint PRIMARY KEY (played_at)
+    )
+    """
+ 
+    with DATABASE.connect() as conn:
+        conn.execute(sql_query)
+        print("Opened database successfully")
+        try:
+            song_df.to_sql("my_played_tracks", DATABASE, index=False, if_exists='append')
+        except Exception as e:
+            print(e)
+    
+    print("database closed")
+

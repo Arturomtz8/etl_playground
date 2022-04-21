@@ -1,10 +1,5 @@
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-import pandas as pd
-import requests
-import json
-from datetime import datetime
-import datetime
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy_utils import database_exists, create_database
 from local_settings import postgresql as settings
@@ -77,8 +72,3 @@ def get_session():
     engine = get_database()
     session = sessionmaker(bind=engine)()
     return session
-
-
-DB = get_database()
-SESSION = get_session()
-BASE = declarative_base()
